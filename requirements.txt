@@ -1,0 +1,2 @@
+playwright==1.63.0
+pywin32==312; sys_platform == 'win32'
