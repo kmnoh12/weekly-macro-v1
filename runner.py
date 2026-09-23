@@ -58,16 +58,15 @@ def execute(server,scenario='normal',mode='mock',run_date=None,headless=True):
         suffix='?run='+run_id
         log('start',target=target,scenario=scenario,mode=mode)
         with sync_playwright() as pw:
-            browser=pw.chromium.launch(channel='msedge',headless=headless)
+            browser=pw.chromium.launch(channel=cfg['browser_channel'],headless=headless)
             context=browser.new_context(accept_downloads=True,viewport={'width':1280,'height':860})
             context.tracing.start(screenshots=True,snapshots=True,sources=False)
             page=context.new_page()
             page.set_default_timeout(12000)
             try:
                 page.goto(server.url+'/portal'+suffix)
-                page.get_by_label('사용자',exact=True).fill('demo-user')
-                page.get_by_label('암호',exact=True).fill('demo-only')
-                page.get_by_role('button',name='로그인',exact=True).click()
+                page.get_by_role('link',name='업무시스템',exact=True).click()
+                log('navigate',label='업무시스템')
                 for label in ['Power BI','구매','납기 현황','정육면체 분석 메뉴']:
                     page.get_by_role('link',name=label,exact=True).click()
                     log('navigate',label=label)
@@ -92,8 +91,11 @@ def execute(server,scenario='normal',mode='mock',run_date=None,headless=True):
                 # Explicit simulator adapter. Never launch this JSON file as real SAP AO.
                 page.goto(server.url+'/ao'+suffix)
                 page.get_by_role('link',name='계속',exact=True).click()
+                for label,expected in [('회사코드(Auth)','H904'),('PU(Auth)','410'),('스케일(수량)','1')]:
+                    if page.get_by_label(label,exact=True).input_value()!=expected:
+                        raise ValueError('AO 프롬프트 기준값 불일치: '+label)
                 page.get_by_label('달력일',exact=True).fill(target)
-                page.get_by_role('button',name='조회',exact=True).click()
+                page.get_by_role('button',name='확인',exact=True).click()
                 retries=0
                 returned_date=None
                 for attempt in range(cfg['poll_limit']):

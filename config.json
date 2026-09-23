@@ -3,6 +3,7 @@
   "recipients": ["team-a@example.test", "team-b@example.test"],
   "delete_columns": ["구매부서", "생산계획 미확정", "계(총계+생산계획 미확정)"],
   "sort_column": "4주이상",
+  "browser_channel": "chrome",
   "min_probability": 0.85,
   "min_margin": 0.20,
   "max_jev_calls": 8,

@@ -10,6 +10,6 @@ if not exist .venv\Scripts\python.exe (
 if errorlevel 1 goto fail
 exit /b 0
 :fail
-echo Python, Microsoft Edge and desktop Excel are required. See README.md.
+echo Python, Chrome and desktop Excel are required. See README.md.
 pause
 exit /b 1

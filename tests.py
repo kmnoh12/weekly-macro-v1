@@ -5,6 +5,7 @@ from pathlib import Path
 from decision import validate_answer, DecisionError
 from simulator import ROOT, start_server
 from runner import execute
+from report_table import prepare_report
 
 
 class Decisions(unittest.TestCase):
@@ -14,6 +15,31 @@ class Decisions(unittest.TestCase):
     def test_reject_invented_action(self):
         with self.assertRaises(DecisionError):
             validate_answer({'type':'choice','choice':'DELETE','probabilities':{'DELETE':1}},['WAIT','STOP'],{'min_probability':.85,'min_margin':.2})
+
+
+class ReportRows(unittest.TestCase):
+    def setUp(self):
+        self.cfg={'team':'전력구매팀','sort_column':'4주이상',
+                  'delete_columns':['구매부서','생산계획 미확정','계(총계+생산계획 미확정)']}
+        self.header=('구매부서','협력사','1주미만','1~2주','2~4주','4주이상','총계',
+                     '생산계획 미확정','계(총계+생산계획 미확정)')
+
+    def test_shifted_header_and_variable_row_count(self):
+        rows=[('제목',),('조회일','2026-09-20'),(None,),self.header,
+              ('전력구매팀','A',1,2,3,7,13,2,15),
+              ('기계구매팀','B',3,4,5,99,111,0,111),
+              ('전력구매팀','C',2,3,1,12,18,1,19),
+              ('전력구매팀 지원','D',1,1,1,88,91,0,91),
+              ('결과',None,7,10,10,206,233,3,236)]
+        result=prepare_report(rows,self.cfg)
+        self.assertEqual(result['source_header_row_index'],3)
+        self.assertEqual([row[0] for row in result['rows']],['C','A'])
+        self.assertEqual(result['totals'],['결과',3,5,4,19,31])
+
+    def test_unexpected_team_quantity_stops(self):
+        rows=[self.header,('전력구매팀','A',1,2,3,'확인필요',13,2,15)]
+        with self.assertRaisesRegex(ValueError,'비숫자'):
+            prepare_report(rows,self.cfg)
 
 
 def integration(mode='mock'):

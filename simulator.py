@@ -8,6 +8,7 @@ import threading
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from simulator_ui import portal, systems, bi, trust, prompt
 
 ROOT = Path(__file__).resolve().parent
 SCENARIOS = ['normal','menu_changed','refresh_delay','timeout_once','wrong_date','empty','bad_number','unknown_popup','send_ack_lost']
@@ -108,24 +109,19 @@ class Handler(BaseHTTPRequestHandler):
             return
         scene=self.server.scene(run_id)
         suffix='?run='+run_id
-        link=lambda path,label: '<p><a href="'+path+suffix+'">'+html.escape(label)+'</a></p>'
         if p == '/portal':
-            body=f'<form action="/systems"><input type="hidden" name="run" value="{run_id}"><label>사용자<input name="user" aria-label="사용자" required></label><label>암호<input type="password" name="password" aria-label="암호" required></label><button>로그인</button></form>'
+            self.reply(portal(suffix))
+            return
         elif p == '/systems':
             scene['logged_in']=True
-            body=link('/bi','Power BI')
+            self.reply(systems(suffix))
+            return
         elif not scene.get('logged_in'):
             self.reply('Login required',403)
             return
-        elif p == '/bi':
-            body=link('/purchase','구매')
-        elif p == '/purchase':
-            body=link('/delivery','납기 현황')
-        elif p == '/delivery':
-            body=link('/cube','정육면체 분석 메뉴')
-        elif p == '/cube':
-            label='생산계획별 납기 초과 미입고 현황' if scene['scenario']=='menu_changed' else '납기경과 미입고_생산계획구분'
-            body=link('/wrong','납기준수율')+link('/download',label)+link('/wrong','납품완료율_자재기준')
+        elif p in ('/bi','/purchase','/delivery','/cube'):
+            self.reply(bi(suffix,p.lstrip('/'),scene['scenario']=='menu_changed'))
+            return
         elif p == '/download':
             payload=json.dumps({'simulator':'weekly-macro-v1','run':run_id,'kind':'AO-launch-placeholder'}).encode()
             self.send_response(200)
@@ -135,9 +131,11 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(payload)
             return
         elif p == '/ao':
-            body='<p>가상 AO 연결 확인: SIMULATION 시스템</p>'+link('/prompt','계속')
+            self.reply(trust(suffix))
+            return
         elif p == '/prompt':
-            body=f'<form action="/refresh"><input type="hidden" name="run" value="{run_id}"><label>달력일<input type="date" name="date" aria-label="달력일" required></label><button>조회</button></form>'
+            self.reply(prompt(suffix))
+            return
         elif p == '/refresh':
             scene['date']=query.get('date',[''])[0]
             dt.date.fromisoformat(scene['date'])

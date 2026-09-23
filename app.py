@@ -1,25 +1,45 @@
 import argparse
+import datetime as dt
 import json
 import threading
 import webbrowser
 import urllib.request
+from pathlib import Path
 from simulator import ROOT, SCENARIOS, start_server
 from runner import execute
 
 
 def main():
     parser=argparse.ArgumentParser(description='주간 미입고 자동화 시뮬레이터 v1')
-    parser.add_argument('command',choices=['serve','run','test'])
+    parser.add_argument('command',choices=['serve','run','test','capture-real','inspect-ao'])
     parser.add_argument('--mode',choices=['mock','live'],default='mock')
     parser.add_argument('--scenario',choices=SCENARIOS,default='normal')
     parser.add_argument('--date',help='가상 실행일 YYYY-MM-DD. 생략 시 한국 현재 날짜')
     parser.add_argument('--port',type=int,default=8765)
     parser.add_argument('--headed',action='store_true')
     parser.add_argument('--no-open',action='store_true')
+    parser.add_argument('--portal-url',help='실제 포털 주소. 생략 시 캡처의 HOPE 2.0 주소')
+    parser.add_argument('--file',help='inspect-ao에서 조사할 .sapaox 파일')
+    parser.add_argument('--login-timeout',type=int,default=180,help='직원 로그인 대기 초')
     args=parser.parse_args()
     if args.command=='test':
         from tests import integration
         integration(args.mode)
+        return
+    if args.command=='capture-real':
+        from company_capture import PORTAL_URL, capture_download
+        folder=ROOT/'runtime'/'company'/dt.datetime.now().strftime('%Y%m%d-%H%M%S')
+        downloaded=capture_download(folder,portal_url=args.portal_url or PORTAL_URL,
+                                    login_timeout=args.login_timeout)
+        print(json.dumps({'status':'DOWNLOADED','file':str(downloaded),'evidence':str(folder)},ensure_ascii=False,indent=2))
+        return
+    if args.command=='inspect-ao':
+        from company_capture import inspect_ao
+        if not args.file:
+            parser.error('inspect-ao에는 --file 경로가 필요합니다')
+        folder=ROOT/'runtime'/'company'/dt.datetime.now().strftime('%Y%m%d-%H%M%S')
+        evidence=inspect_ao(Path(args.file),folder,open_file=not args.no_open)
+        print(json.dumps({'status':'INSPECTED','windows':len(evidence),'evidence':str(folder)},ensure_ascii=False,indent=2))
         return
     try:
         server=start_server(args.port if args.command=='serve' else 0)
